@@ -2,16 +2,10 @@ import { CompanyCard } from '@/components/CompanyCard';
 import { getCompanies } from '@/services/companyAPI';
 import type { Company } from '@/domain/company';
 
-// fetch data from analysis endpoint
-/*async function getAnalysis(): Promise<Company[]> {
-  const res = await fetch('http://localhost:3000/api/analysis');
-  return res.json();
-}
-*/
 
 // Component for home page
 export default async function Home() {
-  //const companies = await getAnalysis();
+  
   const companies: Company[] = await getCompanies();
 
   return (

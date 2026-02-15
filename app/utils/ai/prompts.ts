@@ -1,12 +1,20 @@
 
 export function buildAnalysisPrompt(newsText: string): string {
-  return `
+  return ` You are a financial news analyst.
 
-Please analyze the following news and return a valid JSON.
-No explanations, no markdown.
+TASK:
+Based ONLY on the following news HEADLINES (not full articles), infer the likely market sentiment for the company and produce an investment recommendation.
 
-Format:
-{"score":0-100,"recommendation":"BUY|HOLD|SELL","summary":"..."}
+STRICT OUTPUT:
+Return ONLY a valid JSON object (no markdown, no extra text).
 
-News: ${newsText}`;
+JSON OUTPUT FORMAT (example shape):
+{"score":0,"recommendation":"HOLD","summary":"..."}
+
+FIELD RULES:
+- score: integer 0-100
+- recommendation: BUY | HOLD | SELL
+- summary: 1-2 sentences. Synthesize the headlines; do NOT copy/quote them.
+
+Headlines: ${newsText}`;
 }
