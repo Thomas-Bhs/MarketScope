@@ -7,6 +7,8 @@ import { getCompanyProfile, searchCompanies } from '@/services/finnhubAPI';
 import type { NewsItem } from '@/domain/news';
 import type { Company } from '@/domain/company';
 import type { CompanyProfile } from '@/domain/profile';
+import { getPrices } from '@/services/pricesAPI';
+import type { PricePoint, PriceRange } from '@/domain/pricePoint';
 
 type Props = {
   company: Company;
@@ -16,6 +18,8 @@ export function CompanyCard({ company }: Props) {
   const [news, setNews] = useState<NewsItem[]>([]);
   const [analysis, setAnalysis] = useState<AnalysisPayload['analysis'] | null>(null);
   const [profile, setProfile] = useState<CompanyProfile | null>(null);
+  const [prices, setPrices] = useState<PricePoint[]>([]);
+  const [range, setRange] = useState<PriceRange>('7d');
 
   //fecth the AI analysis (news is fetched inside)
   useEffect(() => {
@@ -72,6 +76,29 @@ export function CompanyCard({ company }: Props) {
     };
   }, [company.id, company.name]);
 
+  useEffect(() => {
+    const symbol = profile?.ticker;
+    if (!symbol) {
+      setPrices([]);
+      return;
+    }
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const data = await getPrices(symbol, range);
+        if (!cancelled) setPrices(Array.isArray(data) ? data : []);
+      } catch (error) {
+        if (!cancelled) console.error('Error fetching prices:', error);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [profile?.ticker, range]);
+
   return (
     <div className='border p-4 rounded shadow hover:shadow-lg transition'>
       <div className='flex items-center gap-3'>
@@ -110,16 +137,11 @@ export function CompanyCard({ company }: Props) {
           <p className='mt-1 text-gray-600'>Summary: {analysis.summary}</p>
 
           {/*ScoreChart update with AI analysis */}
-          <div className='mt-3'>
-            <ScoreChart
-              scores={[
-                {
-                  date: new Date().toISOString().split('T')[0], //today
-                  score: analysis.score,
-                },
-              ]}
-            />
-          </div>
+          {prices.length > 0 && (
+            <div className='mt-3'>
+              <ScoreChart scores={prices.map((p) => ({ date: p.date, score: p.close }))} />
+            </div>
+          )}
         </>
       )}
 
