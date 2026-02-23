@@ -4,7 +4,10 @@ import type { FinnhubSearchResult } from '@/domain/finnhubSearch';
 //get company profile by symbol
 export async function getCompanyProfile(symbol: string): Promise<CompanyProfile> {
   const res = await fetch(`/api/finnhub/profile?symbol=${encodeURIComponent(symbol)}`);
-  if (!res.ok) throw new Error('Failed to fetch finnhub profile');
+  if (!res.ok) {
+    const details = await res.text().catch(() => '');
+    throw new Error(`Failed to fetch finnhub profile' (${res.status}): ${details}`);
+  }
   return res.json();
 }
 
