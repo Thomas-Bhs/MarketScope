@@ -51,6 +51,21 @@ export async function GET(req: Request) {
     return NextResponse.json({ analysis, news, asOf });
   }
 
+  //Mock AI disabled via env var for UI dev mode
+  const AI_ENABLED = (process.env.AI_ENABLED ?? 'true') === 'true';
+
+  if (!AI_ENABLED) {
+    return NextResponse.json({
+      analysis: {
+        score: 72,
+        recommendation: 'BUY',
+        summary: 'UI dev mode: AI disabled (mock analysis).',
+      },
+      news,
+      asOf,
+    });
+  }
+
   const cacheKey = `${companyId}:${newsText}`;
   const cached = analysisCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) {

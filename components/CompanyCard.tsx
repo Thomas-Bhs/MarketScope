@@ -9,6 +9,7 @@ import type { Company } from '@/domain/company';
 import type { CompanyProfile } from '@/domain/profile';
 import { getPrices } from '@/services/pricesAPI';
 import type { PricePoint, PriceRange } from '@/domain/pricePoint';
+import { recommendationBadgeClass, formatMarketCapMillions } from '@/app/utils/ui/card';
 
 type Props = {
   company: Company;
@@ -100,22 +101,28 @@ export function CompanyCard({ company }: Props) {
   }, [profile?.ticker, range]);
 
   return (
-    <div className='border p-4 rounded shadow hover:shadow-lg transition'>
-      <div className='flex items-center gap-3'>
+    <div className='rounded-2xl bg-[#111111] border border-white/10 shadow-[0_10px_40px_rgba(0,0,0,0.6)] p-5 transition'>
+      <div className='flex items-center gap-4'>
         {profile?.logo ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={profile.logo} alt={`${company.name} logo`} className='h-8 w-8 rounded' />
+          <img
+            src={profile.logo}
+            alt={`${company.name} logo`}
+            className='h-10 w-10 rounded-xl bg-white/5 p-1 object-contain'
+          />
         ) : null}
 
         <div>
-          <h3 className='font-bold text-lg'>{profile?.name || company.name}</h3>
-          <p className='text-sm text-gray-500'>{profile?.industry || company.sector}</p>
+          <h3 className='font-semibold text-lg tracking-tight text-white'>
+            {profile?.name || company.name}
+          </h3>
+          <p className='text-sm text-white/60'>{profile?.industry || company.sector}</p>
         </div>
       </div>
 
       {profile?.website ? (
         <a
-          className='mt-2 inline-block text-sm text-blue-600 hover:underline'
+          className='mt-3 inline-block text-sm text-white/70 hover:text-white transition'
           href={profile.website}
           target='_blank'
           rel='noreferrer'
@@ -125,16 +132,28 @@ export function CompanyCard({ company }: Props) {
       ) : null}
 
       {typeof profile?.marketCap === 'number' ? (
-        <p className='mt-1 text-xs text-gray-500'>
-          Market cap: {Math.round(profile.marketCap).toLocaleString()}M
+        <p className='mt-2 text-xs text-white/50 font-mono'>
+          Market cap: {formatMarketCapMillions(profile.marketCap)}
         </p>
       ) : null}
 
       {analysis && (
         <>
-          <p className='mt-2'>Score IA: {analysis.score}</p>
-          <p className='mt-1 font-semibold'>Recommendation: {analysis.recommendation}</p>
-          <p className='mt-1 text-gray-600'>Summary: {analysis.summary}</p>
+          <p className='mt-4 text-sm text-white/60'>AI Score</p>
+          <p className='text-2xl font-mono font-semibold'>{analysis.score}</p>
+          <div className='mt-3 flex items-center gap-2'>
+            <span className='text-sm text-white/60'>Recommendation</span>
+            <span
+              className={[
+                'inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold',
+                recommendationBadgeClass(analysis.recommendation),
+              ].join(' ')}
+            >
+              {analysis.recommendation}
+            </span>
+          </div>
+
+          <p className='mt-3 text-sm text-white/60 leading-relaxed'>{analysis.summary}</p>
 
           {/*ScoreChart update with AI analysis */}
           {prices.length > 0 && (
@@ -147,11 +166,14 @@ export function CompanyCard({ company }: Props) {
 
       {news.length > 0 && (
         <div className='mt-3'>
-          <h4 className='font-semibold'>News:</h4>
-          <ul className='text-sm list-disc list-inside'>
+          <h4 className='font-semibold text-white'>News:</h4>
+          <ul className='mt-2 text-sm text-white/60 space-y-2'>
             {news.map((n) => (
               <li key={`${n.date}-${n.source}-${n.title}`}>
-                {n.title} ({n.source}, {n.date})
+                <span className='block'>{n.title}</span>
+                <span className='block text-xs text-white/40'>
+                  {n.source} • {n.date}
+                </span>
               </li>
             ))}
           </ul>

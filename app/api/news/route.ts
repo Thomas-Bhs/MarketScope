@@ -5,7 +5,9 @@ const MARKETAUX_API_TOKEN = process.env.MARKETAUX_API_TOKEN ?? '';
 
 const companyIdToSymbol: Record<number, string> = {
   1: 'AAPL',
-  2: 'MSFT', // exemple
+  2: 'MSFT',
+  3: 'NVDA',
+  4: 'AMZN',
 };
 
 export async function GET(req: Request) {
@@ -14,7 +16,7 @@ export async function GET(req: Request) {
   }
 
   const url = new URL(req.url);
-  
+
   const companyId = Number(url.searchParams.get('companyId') ?? '1');
   //transform the companyId into a stock symbol
   const symbol = companyIdToSymbol[companyId];
@@ -33,7 +35,6 @@ export async function GET(req: Request) {
   });
 
   const res = await fetch(`https://api.marketaux.com/v1/news/all?${params.toString()}`);
-
 
   if (!res.ok) {
     const details = await res.text();
