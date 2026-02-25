@@ -93,10 +93,14 @@ npm run dev
 App will be available at : 
 http://localhost:3000
 
-
 ---
 
-## Future Improvements
+## Live Demo
+
+[Visit MarketScope](https://market-scope-ai.vercel.app)
+---
+
+© Future Improvements
 
 Planned or possible enhancements to evolve MarketScope further:
 
