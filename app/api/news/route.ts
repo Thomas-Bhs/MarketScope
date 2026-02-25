@@ -1,14 +1,12 @@
 import { NextResponse } from 'next/server';
 import type { NewsItem } from '@/domain/news';
+import { companies } from '@/data/companies';
 
 const MARKETAUX_API_TOKEN = process.env.MARKETAUX_API_TOKEN ?? '';
 
-const companyIdToSymbol: Record<number, string> = {
-  1: 'AAPL',
-  2: 'MSFT',
-  3: 'NVDA',
-  4: 'AMZN',
-};
+// transform array to object
+const companyById: Record<number, (typeof companies)[number]> = Object.fromEntries(
+  companies.map((c) => [c.id, c]));
 
 export async function GET(req: Request) {
   if (!MARKETAUX_API_TOKEN) {
@@ -18,18 +16,26 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
 
   const companyId = Number(url.searchParams.get('companyId') ?? '1');
-  //transform the companyId into a stock symbol
-  const symbol = companyIdToSymbol[companyId];
+  
+  const company = companyById[companyId];
+  const symbol = company?.symbol;
+  const companyName = company?.name;
+
 
   if (!symbol) {
     return NextResponse.json([], { status: 200 });
   }
 
+  const search = companyName ? `"${companyName}" | ${symbol}` : symbol;
+
+
   const params = new URLSearchParams({
     api_token: MARKETAUX_API_TOKEN,
     symbols: symbol,
+    search,
     language: 'en',
     limit: '10',
+    group_similar: 'true',
     filter_entities: 'true',
     must_have_entities: 'true',
   });
