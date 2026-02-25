@@ -10,6 +10,9 @@ const HF_API_KEY = process.env.HF_API_KEY ?? '';
 const client = new InferenceClient(HF_API_KEY);
 const cacheDuration = 1000 * 60 * 60;
 
+const MAX_AI_CALLS = 50;
+let aiCallCount = 0;
+
 type AnalysisPayload = { analysis: Analysis; news: NewsItem[]; asOf?: string };
 const analysisCache = new Map<string, { value: AnalysisPayload; expiresAt: number }>();
 
@@ -51,15 +54,18 @@ export async function GET(req: Request) {
     return NextResponse.json({ analysis, news, asOf });
   }
 
-  //Mock AI disabled via env var for UI dev mode
+  // AI toggle via env + automatic fallback if usage limit reached
   const AI_ENABLED = (process.env.AI_ENABLED ?? 'true') === 'true';
 
-  if (!AI_ENABLED) {
+  if (!AI_ENABLED || aiCallCount >= MAX_AI_CALLS) {
     return NextResponse.json({
       analysis: {
         score: 72,
-        recommendation: 'BUY',
-        summary: 'UI dev mode: AI disabled (mock analysis).',
+        recommendation: 'HOLD',
+        summary:
+          aiCallCount >= MAX_AI_CALLS
+            ? 'AI quota reached. Showing fallback analysis for demo purposes.'
+            : 'AI disabled via environment configuration.',
       },
       news,
       asOf,
@@ -76,6 +82,7 @@ export async function GET(req: Request) {
   const prompt = buildAnalysisPrompt(newsText);
 
   try {
+    aiCallCount++;
     // call HF for analysis
     const { text, json } = await getJsonFromHF({
       client,

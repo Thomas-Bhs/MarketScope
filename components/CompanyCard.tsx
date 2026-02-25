@@ -1,7 +1,7 @@
 'use client';
 
 import { ScoreChart } from './ScoreChart';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { getAnalysis, type AnalysisPayload } from '@/services/analysisAPI';
 import { getCompanyProfile, searchCompanies } from '@/services/finnhubAPI';
 import type { NewsItem } from '@/domain/news';
@@ -13,14 +13,18 @@ import { recommendationBadgeClass, formatMarketCapMillions } from '@/app/utils/u
 
 type Props = {
   company: Company;
+  onClose?: () => void;
+  onReady?: () => void;
 };
 
-export function CompanyCard({ company }: Props) {
+export function CompanyCard({ company, onClose, onReady }: Props) {
   const [news, setNews] = useState<NewsItem[]>([]);
   const [analysis, setAnalysis] = useState<AnalysisPayload['analysis'] | null>(null);
   const [profile, setProfile] = useState<CompanyProfile | null>(null);
   const [prices, setPrices] = useState<PricePoint[]>([]);
   const [range, setRange] = useState<PriceRange>('7d');
+
+  const priceCacheRef = useRef(new Map<string, PricePoint[]>());
 
   //fecth the AI analysis (news is fetched inside)
   useEffect(() => {
@@ -30,13 +34,16 @@ export function CompanyCard({ company }: Props) {
       try {
         const payload = await getAnalysis(company.id);
 
-        // ignore results if we navigated away before the fetch completed
         if (cancelled) return;
 
         setAnalysis(payload.analysis);
         setNews(payload.news ?? []);
+        onReady?.();
       } catch (error) {
-        if (!cancelled) console.error('Error fetching analysis:', error);
+        if (!cancelled) {
+          console.error('Error fetching analysis:', error);
+          onReady?.(); // stop loader even if analysis fails
+        }
       }
     })();
 
@@ -84,12 +91,23 @@ export function CompanyCard({ company }: Props) {
       return;
     }
 
+    const cacheKey = `${symbol}:${range}`;
+    const cached = priceCacheRef.current.get(cacheKey);
+    if (cached) {
+      setPrices(cached);
+      return;
+    }
+
     let cancelled = false;
 
     (async () => {
       try {
         const data = await getPrices(symbol, range);
-        if (!cancelled) setPrices(Array.isArray(data) ? data : []);
+        const next = Array.isArray(data) ? data : [];
+        if (cancelled) return;
+        // Save to cache and update state
+        priceCacheRef.current.set(cacheKey, next);
+        setPrices(next);
       } catch (error) {
         if (!cancelled) console.error('Error fetching prices:', error);
       }
@@ -101,7 +119,25 @@ export function CompanyCard({ company }: Props) {
   }, [profile?.ticker, range]);
 
   return (
-    <div className='rounded-2xl bg-[#111111] border border-white/10 shadow-[0_10px_40px_rgba(0,0,0,0.6)] p-5 transition'>
+    <div className='relative rounded-2xl bg-[#111111] border border-white/10 shadow-[0_10px_40px_rgba(0,0,0,0.6)] p-5 transition'>
+      {onClose ? (
+        <button
+          type='button'
+          aria-label='Close analysis'
+          onClick={onClose}
+          className='
+          absolute right-4 top-4
+          h-9 w-9 rounded-full
+          bg-white/5 hover:bg-white/10
+          border border-white/10
+          flex items-center justify-center
+          text-white/70 hover:text-white
+          transition
+        '
+        >
+          <span className='text-lg leading-none'>×</span>
+        </button>
+      ) : null}
       <div className='flex items-center gap-4'>
         {profile?.logo ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -140,7 +176,7 @@ export function CompanyCard({ company }: Props) {
       {analysis && (
         <>
           <p className='mt-4 text-sm text-white/60'>AI Score</p>
-          <p className='text-2xl font-mono font-semibold'>{analysis.score}</p>
+          <p className='text-2xl font-mono font-semibold text-white'>{analysis.score}</p>
           <div className='mt-3 flex items-center gap-2'>
             <span className='text-sm text-white/60'>Recommendation</span>
             <span
@@ -155,12 +191,42 @@ export function CompanyCard({ company }: Props) {
 
           <p className='mt-3 text-sm text-white/60 leading-relaxed'>{analysis.summary}</p>
 
-          {/*ScoreChart update with AI analysis */}
-          {prices.length > 0 && (
-            <div className='mt-3'>
-              <ScoreChart scores={prices.map((p) => ({ date: p.date, score: p.close }))} />
+          {/* Price chart */}
+          <div className='mt-4'>
+            <div className='flex items-center justify-between gap-3'>
+              <p className='text-sm text-white/60'>Price</p>
+
+              {/* Range selector */}
+              <div className='inline-flex rounded-xl border border-white/10 bg-white/5 p-1'>
+                {(['7d', '1m', '6m'] as const).map((r) => {
+                  const active = r === range;
+                  return (
+                    <button
+                      key={r}
+                      type='button'
+                      onClick={() => setRange(r)}
+                      className={[
+                        'px-3 py-1.5 text-xs font-semibold rounded-lg transition',
+                        active
+                          ? 'bg-white/15 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.15)]'
+                          : 'text-white/70 hover:text-white hover:bg-white/10',
+                      ].join(' ')}
+                    >
+                      {r.toUpperCase()}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          )}
+
+            {prices.length > 0 ? (
+              <div className='mt-3'>
+                <ScoreChart scores={prices.map((p) => ({ date: p.date, score: p.close }))} />
+              </div>
+            ) : (
+              <p className='mt-3 text-sm text-white/50'>No price data available for this range.</p>
+            )}
+          </div>
         </>
       )}
 
@@ -179,6 +245,36 @@ export function CompanyCard({ company }: Props) {
           </ul>
         </div>
       )}
+
+      {profile?.ticker ? (
+        <div className='mt-6 flex justify-center'>
+          <a
+            className={[
+              'h-10',
+              'w-[75%]',
+              'inline-flex items-center justify-center',
+              'rounded-2xl',
+              'bg-gradient-to-b from-zinc-300/40 via-zinc-700/80 to-zinc-900/90',
+              'hover:from-zinc-200/60 hover:via-zinc-600/85 hover:to-zinc-900/95',
+              'border border-zinc-400/30',
+              'shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_12px_28px_rgba(0,0,0,0.55)]',
+              'active:shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_6px_14px_rgba(0,0,0,0.6)]',
+              'text-xs tracking-wide font-semibold text-white',
+              'focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300/40',
+              'transition-all duration-200',
+            ].join(' ')}
+            href={`https://www.traderepublic.com/en-de?instrument=${encodeURIComponent(
+              profile.ticker
+            )}`}
+            target='_blank'
+            rel='noreferrer'
+            aria-label={`Open ${profile.ticker} on Trade Republic`}
+          >
+            Trade on Trade Republic
+            <span className='ml-3 text-xs text-white/50 font-mono'>{profile.ticker}</span>
+          </a>
+        </div>
+      ) : null}
     </div>
   );
 }

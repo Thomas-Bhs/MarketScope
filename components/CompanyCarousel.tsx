@@ -1,81 +1,114 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { CompanyCard } from '@/components/CompanyCard';
-import { Company } from '@/domain/company';
 import { MiniCompanyCard } from './MiniCompanyCard';
+import { MiniCompanyItem } from '@/domain/miniCompanyItem';
+import { getCoverflowStyle } from '@/app/utils/ui/carousel';
 
 type Props = {
-  companies: Company[];
+  items: MiniCompanyItem[];
+  selectedId: number | null;
+  onSelect: (id: number) => void;
+  onAnalyze: (id: number) => void;
 };
 
-export function CompanyCarousel({ companies }: Props) {
+export function CompanyCarousel({ items, selectedId, onSelect, onAnalyze }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
 
+  // Parent -> Carousel : when selectedId changes (e.g. from filter), update activeIndex to match
+  useEffect(() => {
+    if (selectedId == null) return;
+    const idx = items.findIndex((it) => it.id === selectedId);
+    if (idx >= 0) setActiveIndex(idx);
+  }, [selectedId, items]);
+
+  // Carousel -> Parent : when activeIndex changes (e.g. from scroll), notify parent of new selectedId
+  useEffect(() => {
+    const it = items[activeIndex];
+    if (!it) return;
+
+    // avoid spamming onSelect during fast scroll - wait a bit before confirming selection
+    const t = setTimeout(() => onSelect(it.id), 120);
+    return () => clearTimeout(t);
+  }, [activeIndex, items, onSelect]);
+
+  //scroll listener
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
+    let raf = 0;
+
     const handleScroll = () => {
-      const children = Array.from(container.children) as HTMLElement[];
-      //calculate the center of the carousel container
-      const containerCenter = container.scrollLeft + container.offsetWidth / 2;
+      if (raf) cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        const children = Array.from(container.children) as HTMLElement[];
 
-      let closestIndex = 0;
-      let closestDistance = Infinity;
+        // center of the container in coordinates "layout" (IGNORE transforms)
+        const containerCenter = container.scrollLeft + container.clientWidth / 2;
 
-      //calculate which card is closest to the center
-      children.forEach((child, index) => {
-        //calculate the center of the card
-        const childCenter = child.offsetLeft + child.offsetWidth / 2;
-        const distance = Math.abs(containerCenter - childCenter);
+        let closestIndex = 0;
+        let closestDistance = Infinity;
 
-        if (distance < closestDistance) {
-          closestDistance = distance;
-          closestIndex = index;
-        }
+        children.forEach((child, index) => {
+          // center of the child in the same "layout" coordinates
+          const childCenter = child.offsetLeft + child.offsetWidth / 2;
+          const distance = Math.abs(containerCenter - childCenter);
+
+          if (distance < closestDistance) {
+            closestDistance = distance;
+            closestIndex = index;
+          }
+        });
+
+        setActiveIndex((prev) => (prev === closestIndex ? prev : closestIndex));
       });
-
-      setActiveIndex(closestIndex);
     };
 
-    container.addEventListener('scroll', handleScroll);
-    //cleanup when component unmounts
-    return () => container.removeEventListener('scroll', handleScroll);
-  }, []);
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    window.addEventListener('resize', handleScroll); //recalculate on window rezise
 
-  if (!companies.length) return null;
+    handleScroll(); //initial calculation
+
+    //cleanup when component unmounts
+    return () => {
+      container.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('resize', handleScroll);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [items.length]); //re-run effect if companies list changes
+
+  if (!items.length) return null;
 
   return (
-    <div className='relative -mx-4'>
-      
+    <div className='relative mx-auto w-full max-w-[720px] [perspective:1200px]'>
       <div className='pointer-events-none absolute inset-y-0 left-0 w-6 bg-gradient-to-r from-black/60 to-transparent' />
       <div className='pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-black/60 to-transparent' />
 
       <div
         ref={containerRef}
         className='
-          flex gap-4 overflow-x-auto px-4 pb-4
+          relative flex items-center gap-1
+          overflow-x-auto scroll-smooth
           snap-x snap-mandatory
           [-webkit-overflow-scrolling:touch]
           [scrollbar-width:none] [&::-webkit-scrollbar]:hidden
-        '
+          [transform-style:preserve-3d]
+          pt-8 pb-16
+          px-[22%]
+          '
       >
-        {companies.map((company, index) => {
+        {items.map((item, index) => {
           const isActive = index === activeIndex;
 
           return (
             <div
-              key={company.id}
-              className={`
-                snap-center shrink-0
-                w-[86%] sm:w-[70%]
-                transition-all duration-300
-                ${isActive ? 'scale-100 opacity-100' : 'scale-95 opacity-60'}
-              `}
+              key={item.id}
+              style={getCoverflowStyle(index, activeIndex)}
+              className='snap-center shrink-0 w-[70%] sm:w-[52%] -ml-3 first:ml-0 transition-transform duration-300 will-change-transform'
             >
-              <CompanyCard company={company} />
+              <MiniCompanyCard item={item} active={isActive} onAnalyze={onAnalyze} />
             </div>
           );
         })}

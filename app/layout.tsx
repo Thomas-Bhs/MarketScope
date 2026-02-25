@@ -37,7 +37,7 @@ export default function RootLayout({
           dark:text-white
         `}
       >
-        <div className='relative min-h-screen overflow-hidden'>
+        <div className='relative min-h-screen overflow-x-hidden'>
           {/* subtle radial glow for premium depth */}
           <div className='pointer-events-none absolute inset-0'>
             <div

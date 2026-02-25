@@ -11,17 +11,25 @@ export function recommendationBadgeClass(rec: Recommendation) {
   }
 }
 
+//finhub returns market cap in millions, so we need to format it accordingly
 export function formatMarketCapMillions(marketCap: number | null | undefined) {
   if (!marketCap || !Number.isFinite(marketCap)) {
     return '—';
   }
 
-  const billions = marketCap / 1_000_000_000;
-  const millions = marketCap / 1_000_000;
+  const m = marketCap;
 
-  if (billions >= 1) {
-    return `${billions.toFixed(1)}B`;
+  if(m>= 1_000_000) {
+    const trillions = m / 1_000_000;
+    return `${trillions.toFixed(2)}T`;
   }
 
-  return `${Math.round(millions).toLocaleString()}M`;
+  if (m >= 1_000) {
+     const billions = m / 1_000;
+     return `${billions.toFixed(2)}B`;
+  }
+
+  return `${Math.round(m).toLocaleString()}M`;
 }
+
+
