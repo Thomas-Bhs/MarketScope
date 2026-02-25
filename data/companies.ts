@@ -1,0 +1,17 @@
+export const companies = [
+  { id: 1, name: 'Apple', sector: 'Tech', symbol: 'AAPL' },
+  { id: 2, name: 'Microsoft', sector: 'Tech', symbol: 'MSFT' },
+  { id: 3, name: 'Nvidia', sector: 'Tech', symbol: 'NVDA' },
+  { id: 4, name: 'Amazon', sector: 'Consumer / Tech', symbol: 'AMZN' },
+  { id: 5, name: 'Alphabet', sector: 'Tech', symbol: 'GOOGL' },
+  { id: 6, name: 'Meta', sector: 'Tech', symbol: 'META' },
+  { id: 7, name: 'Tesla', sector: 'Auto / Tech', symbol: 'TSLA' },
+  { id: 8, name: 'JPMorgan Chase', sector: 'Finance', symbol: 'JPM' },
+  { id: 9, name: 'Visa', sector: 'Finance', symbol: 'V' },
+  { id: 10, name: 'Mastercard', sector: 'Finance', symbol: 'MA' },
+  { id: 11, name: 'Walmart', sector: 'Consumer', symbol: 'WMT' },
+  { id: 12, name: 'Coca-Cola', sector: 'Consumer', symbol: 'KO' },
+  { id: 13, name: 'McDonald’s', sector: 'Consumer', symbol: 'MCD' },
+  { id: 14, name: 'Johnson & Johnson', sector: 'Healthcare', symbol: 'JNJ' },
+  { id: 15, name: 'Pfizer', sector: 'Healthcare', symbol: 'PFE' },
+];
