@@ -27,3 +27,4 @@ export async function getAnalysis(companyId: number): Promise<AnalysisResponse> 
 
   return res.json();
 }
+

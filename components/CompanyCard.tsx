@@ -2,7 +2,8 @@
 
 import { ScoreChart } from './ScoreChart';
 import { useEffect, useRef, useState } from 'react';
-import { getAnalysis, type AnalysisPayload } from '@/services/analysisAPI';
+import { getAnalysis, type AnalysisResponse } from '@/services/analysisAPI';
+import type { Analysis } from '@/domain/analysis';
 import { getCompanyProfile, searchCompanies } from '@/services/finnhubAPI';
 import type { NewsItem } from '@/domain/news';
 import type { Company } from '@/domain/company';
@@ -19,7 +20,7 @@ type Props = {
 
 export function CompanyCard({ company, onClose, onReady }: Props) {
   const [news, setNews] = useState<NewsItem[]>([]);
-  const [analysis, setAnalysis] = useState<AnalysisPayload['analysis'] | null>(null);
+  const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [profile, setProfile] = useState<CompanyProfile | null>(null);
   const [prices, setPrices] = useState<PricePoint[]>([]);
   const [range, setRange] = useState<PriceRange>('7d');
@@ -32,12 +33,19 @@ export function CompanyCard({ company, onClose, onReady }: Props) {
 
     (async () => {
       try {
-        const payload = await getAnalysis(company.id);
+        const payload: AnalysisResponse = await getAnalysis(company.id);
 
         if (cancelled) return;
 
-        setAnalysis(payload.analysis);
-        setNews(payload.news ?? []);
+        // `getAnalysis` can return either `Analysis` or `{ analysis, news }`.
+        if ('analysis' in payload) {
+          setAnalysis(payload.analysis);
+          setNews(payload.news ?? []);
+        } else {
+          setAnalysis(payload);
+          setNews([]);
+        }
+
         onReady?.();
       } catch (error) {
         if (!cancelled) {

@@ -44,7 +44,7 @@ export async function GET(req: Request) {
 
   // If a request is in flight wait for result
   if (inFlightRequests.has(cacheKey)) {
-    const data = await inFlightRequests.get(cacheKey);
+    const data = await inFlightRequests.get(cacheKey)!;
     return NextResponse.json(data);
   }
 
@@ -68,15 +68,13 @@ export async function GET(req: Request) {
 
     const data = await res.json();
 
-        // Alpha Vantage sometimes returns throttling/info messages when rate-limited
+    // Alpha Vantage sometimes returns throttling/info messages when rate-limited
     if (data?.Note || data?.Information || data?.Error_Message) {
-      return NextResponse.json(
-        {
-          error: 'Alpha Vantage response error',
-          details: data?.Note ?? data?.Information ?? data?.Error_Message ?? '',
-        },
-        { status: 429 } //too many requests
-      );
+      const msg = String(data?.Note ?? data?.Information ?? data?.Error_Message ?? '');
+      const err: any = new Error(`Alpha Vantage rate limit: ${msg}`);
+      err.status = 429;
+      err.details = msg;
+      throw err;
     }
 
     const series = data?.['Time Series (Daily)'];
@@ -106,16 +104,19 @@ export async function GET(req: Request) {
     const result = await requestPromise;
     return NextResponse.json(result);
   } catch (error: any) {
-        // If we have stale cache, serve it instead of failing
-        if (cached?.value) {
-          return NextResponse.json(cached.value);
-        }
+    // If we have stale cache, serve it instead of failing
+    if (cached?.value) {
+      return NextResponse.json(cached.value);
+    }
 
     return NextResponse.json(
-      { error: 'Alpha Vantage response error', details: error?.message ?? String(error) },
-      { status: 500 }
+      {
+        error: 'Alpha Vantage response error',
+        details: error?.details ?? error?.message ?? String(error),
+      },
+      { status: typeof error?.status === 'number' ? error.status : 500 }
     );
   } finally {
-    inFlightRequests.delete(cacheKey);//delete in-flight when the resquest is in cache or failed
+    inFlightRequests.delete(cacheKey); //delete in-flight when the resquest is in cache or failed
   }
 }
