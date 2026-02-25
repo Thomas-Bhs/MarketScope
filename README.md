@@ -1,36 +1,120 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# MarketScope
+
+MarketScope is a modern financial analysis web application that transforms raw market data into clear, actionable insights.
+
+It combines live stock data, AI-generated analysis, and an elegant UI to provide a smooth exploratory experience.
+
+---
+
+## Features
+
+- 🔍 Company search
+- 🎯 AI-powered company analysis
+- 📈 Interactive price chart (7d / 1m / 6m)
+- 📰 Latest company news
+- ⚡ Async loading states with custom loader
+- 🧠 Client-side caching (prices by symbol + range)
+- 🎨 Responsive premium UI (glassmorphism + smooth transitions)
+- 🌙 Dark-mode optimized interface
+
+---
+
+## Architecture Overview
+
+MarketScope is built with a modular architecture:
+
+- `app/` — Next.js App Router pages
+- `components/` — Reusable UI components (Carousel, CompanyCard, Footer, Loader)
+- `services/` — API abstraction layer
+- `domain/` — Typed models and mappers
+- `utils/` — UI and data utilities
+- `api/` — Backend routes (Next.js Route Handlers)
+
+### Data Flow
+
+1. User selects a company from the carousel  
+2. User clicks on **"Analyze"**  
+3. The analysis section is revealed with a loading state  
+4. AI analysis is fetched via `/api/analysis`  
+5. Company profile is fetched via Finnhub  
+6. Price data is fetched via `/api/prices` (based on selected range: 7d / 1m / 6m)  
+7. Data is rendered inside `CompanyCard` (score, summary, chart, news)  
+8. Loader disappears once the analysis request resolves (success or error)
+
+---
+
+## Tech Stack
+
+### Frontend
+- Next.js 14 (App Router)
+- React
+- TypeScript
+- TailwindCSS
+- Victory Charts
+
+### Backend
+- Next.js Route Handlers
+- External APIs:
+  - Finnhub API
+  - News API
+  - AI analysis endpoint
+
+### UX & Performance
+- Client-side caching (symbol + range)
+- Loading fallback protection
+- Smooth scroll transitions
+- Responsive layout
+- Scroll containment
+- Optimized async effects
+
+---
 
 ## Getting Started
 
-First, run the development server:
+### 1️ - Clone repository
 
-```bash
+git clone https://github.com/your-username/marketscope.git
+cd marketscope
+
+### 2 - Install dependencies
+
+npm install
+
+### 3 - Create.env.local
+
+FINNHUB_API_KEY=your_key_here
+NEWS_API_KEY=your_key_here
+ANALYSIS_API_KEY=your_key_here
+
+### 4 - Run development server
+
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+App will be available at : 
+http://localhost:3000
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+---
 
-## Learn More
+## Future Improvements
 
-To learn more about Next.js, take a look at the following resources:
+Planned or possible enhancements to evolve MarketScope further:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- Enhanced chart interactions (zoom, tooltips, animations)
+- Improved error handling UI (rate limits, API failures, fallback states)
+- Expand company dataset with sector filters
+- Progressive Web App (PWA) support
+- Authentication layer for saved watchlists
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+These improvements would move the project closer to a production-grade financial dashboard.
 
-## Deploy on Vercel
+---
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Author
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+  Thomas Bourchis
+
+	•	GitHub: https://github.com/Thomas-Bhs
+	•	LinkedIn: https://www.linkedin.com/in/thomas-bourc-his-09b056b4/
+
+

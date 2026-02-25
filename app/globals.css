@@ -1,2 +1,29 @@
 @import "tailwindcss";
 
+
+@layer utilities {
+  .ms-dot {
+    display: inline-block;
+    opacity: 0.2;
+    animation: msDots 1.2s infinite ease-in-out;
+  }
+
+  .ms-dot--2 {
+    animation-delay: 0.15s;
+  }
+
+  .ms-dot--3 {
+    animation-delay: 0.3s;
+  }
+}
+
+@keyframes msDots {
+  0%, 100% {
+    opacity: 0.2;
+    transform: translateY(0);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-1px);
+  }
+}
