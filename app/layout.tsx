@@ -16,6 +16,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: 'MarketScope',
   description: 'AI-powered stock insights and financial analysis',
+  themeColor: '#070707',
 };
 
 export default function RootLayout({
@@ -24,18 +25,15 @@ export default function RootLayout({
   children: ReactNode;
 }>) {
   return (
-    <html lang='en'>
+    <html lang='en' className='dark h-full bg-[#070707]'>
       <body
         className={`
-                           ${geistSans.variable} ${geistMono.variable}
-          antialiased
-          min-h-screen
-          bg-gradient-to-b
-          from-slate-50 via-white to-slate-100
-          dark:from-[#070707] dark:via-[#0D0D0F] dark:to-[#050505]
-          text-slate-900
-          dark:text-white
-        `}
+    ${geistSans.variable} ${geistMono.variable}
+    antialiased
+    min-h-screen
+    bg-[#070707]
+    text-white
+  `}
       >
         <div className='relative min-h-screen overflow-x-hidden'>
           {/* subtle radial glow for premium depth */}

@@ -89,11 +89,14 @@ export function CompanyCarousel({ items, selectedId, onSelect, onAnalyze }: Prop
       <div
         ref={containerRef}
         className='
-          relative flex items-center gap-1
-          overflow-x-auto scroll-smooth
+          relative flex items-center gap-4 sm:gap-1
+          overflow-x-auto
           snap-x snap-mandatory
-          [-webkit-overflow-scrolling:touch]
+          [scroll-snap-stop:always]
+          [touch-action:pan-x]
+          [overscroll-behavior-x:contain]
           [scrollbar-width:none] [&::-webkit-scrollbar]:hidden
+          sm:scroll-smooth
           [transform-style:preserve-3d]
           pt-8 pb-16
           px-[22%]
@@ -106,7 +109,7 @@ export function CompanyCarousel({ items, selectedId, onSelect, onAnalyze }: Prop
             <div
               key={item.id}
               style={getCoverflowStyle(index, activeIndex)}
-              className='snap-center shrink-0 w-[70%] sm:w-[52%] -ml-3 first:ml-0 transition-transform duration-300 will-change-transform'
+              className='snap-center snap-always shrink-0 w-[70%] sm:w-[52%] first:ml-0 transition-transform duration-300 will-change-transform'
             >
               <MiniCompanyCard item={item} active={isActive} onAnalyze={onAnalyze} />
             </div>

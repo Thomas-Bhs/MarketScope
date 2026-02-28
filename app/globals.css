@@ -1,5 +1,4 @@
-@import "tailwindcss";
-
+@import 'tailwindcss';
 
 @layer utilities {
   .ms-dot {
@@ -18,7 +17,8 @@
 }
 
 @keyframes msDots {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 0.2;
     transform: translateY(0);
   }
@@ -26,4 +26,14 @@
     opacity: 1;
     transform: translateY(-1px);
   }
+}
+
+html,
+body {
+  background-color: #070707;
+}
+
+/* Helps browsers (especially iOS Safari) render form controls/scrollbars in dark mode */
+:root {
+  color-scheme: dark;
 }
