@@ -17,7 +17,7 @@ function rangeToPoints(range: string) {
     case '1m':
       return 30;
     case '6m':
-      return 180;
+      return 26; //26 weeks in 6 months
     default:
       return 30;
   }
@@ -50,12 +50,12 @@ export async function GET(req: Request) {
 
   const points = rangeToPoints(range);
 
-  const outputsize = range === '6m' ? 'full' : 'compact';
+  const avFunction = range === '6m' ? 'TIME_SERIES_WEEKLY' : 'TIME_SERIES_DAILY';
+  const seriesKey = range === '6m' ? 'Weekly Time Series' : 'Time Series (Daily)';
 
   const alphaVantageUrl =
-    `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY` +
+    `https://www.alphavantage.co/query?function=${encodeURIComponent(avFunction)}` +
     `&symbol=${encodeURIComponent(symbol)}` +
-    `&outputsize=${outputsize}` +
     `&apikey=${encodeURIComponent(ALPHA_VANTAGE_API_KEY)}`;
 
   const requestPromise = (async () => {
@@ -77,7 +77,7 @@ export async function GET(req: Request) {
       throw err;
     }
 
-    const series = data?.['Time Series (Daily)'];
+    const series = data?.[seriesKey];
     if (!series || typeof series !== 'object') {
       throw new Error('Missing time series in response');
     }
