@@ -96,6 +96,16 @@ export default function Home() {
     }, 5000);*/
   }, []);
 
+  const handleLogoClick = useCallback(() => {
+    setQuery('');
+    setShowAnalysis(false);
+    setAnalysisLoading(false);
+
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, []);
+
   useEffect(() => {
     if (!showAnalysis) return;
     // wait for the analysis section to be rendered
@@ -118,7 +128,12 @@ export default function Home() {
  bg-[#101012] border-b border-white/5 shadow-[0_4px_20px_rgba(0,0,0,0.4)]'
       >
         <div className='flex items-start gap-1'>
-          <div className='relative w-[30vw] h-[20vh] max-w-[520px] min-w-[240px] max-h-[140px] min-h-[72px]'>
+          <button
+            type='button'
+            onClick={handleLogoClick}
+            aria-label='Back to top'
+            className='relative w-[30vw] h-[20vh] max-w-[520px] min-w-[240px] max-h-[140px] min-h-[72px] cursor-pointer focus:outline-none focus:ring-2 focus:ring-white/30 rounded-md'
+          >
             <Image
               src='/logo_marketscope.png'
               alt='MarketScope'
@@ -126,13 +141,13 @@ export default function Home() {
               priority
               className='object-cover object-left'
             />
-          </div>
+          </button>
         </div>
 
         <div className='flex-1 max-w-[640px] pt-2'>
           <input
             type='text'
-            placeholder='Search companies'
+            placeholder='Search'
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className='
