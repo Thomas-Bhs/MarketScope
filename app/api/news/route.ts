@@ -6,7 +6,8 @@ const MARKETAUX_API_TOKEN = process.env.MARKETAUX_API_TOKEN ?? '';
 
 // transform array to object
 const companyById: Record<number, (typeof companies)[number]> = Object.fromEntries(
-  companies.map((c) => [c.id, c]));
+  companies.map((c) => [c.id, c])
+);
 
 export async function GET(req: Request) {
   if (!MARKETAUX_API_TOKEN) {
@@ -16,11 +17,10 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
 
   const companyId = Number(url.searchParams.get('companyId') ?? '1');
-  
+
   const company = companyById[companyId];
   const symbol = company?.symbol;
   const companyName = company?.name;
-
 
   if (!symbol) {
     return NextResponse.json([], { status: 200 });
@@ -28,19 +28,21 @@ export async function GET(req: Request) {
 
   const search = companyName ? `"${companyName}" | ${symbol}` : symbol;
 
-
   const params = new URLSearchParams({
     api_token: MARKETAUX_API_TOKEN,
     symbols: symbol,
     search,
     language: 'en',
     limit: '10',
+    sort: 'published_at',
     group_similar: 'true',
     filter_entities: 'true',
     must_have_entities: 'true',
   });
 
-  const res = await fetch(`https://api.marketaux.com/v1/news/all?${params.toString()}`);
+  const res = await fetch(`https://api.marketaux.com/v1/news/all?${params.toString()}`, {
+    next: { revalidate: 3600 }, // refrais le cache toutes les heures
+  });
 
   if (!res.ok) {
     const details = await res.text();
