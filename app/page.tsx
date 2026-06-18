@@ -125,9 +125,6 @@ export default function Home() {
     return () => clearTimeout(t);
   }, [showAnalysis, selectedCompanyId]);
 
-  useEffect(() => {
-    setShowAnalysis(false);
-  }, [query]);
 
   return (
     <>
@@ -159,7 +156,7 @@ export default function Home() {
             type='text'
             placeholder='Search'
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => { setQuery(e.target.value); setShowAnalysis(false); }}
             className='
         w-full
         rounded-xl

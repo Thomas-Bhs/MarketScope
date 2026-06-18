@@ -28,8 +28,9 @@ export function CompanyCard({ company, ticker: tickerProp, onClose, onReady }: P
   const [range, setRange] = useState<PriceRange>('7d');
 
   const priceCacheRef = useRef(new Map<string, PricePoint[]>());
+  const onReadyRef = useRef(onReady);
+  useEffect(() => { onReadyRef.current = onReady; });
 
-  //fecth the AI analysis (news is fetched inside)
   useEffect(() => {
     let cancelled = false;
 
@@ -39,7 +40,6 @@ export function CompanyCard({ company, ticker: tickerProp, onClose, onReady }: P
 
         if (cancelled) return;
 
-        // `getAnalysis` can return either `Analysis` or `{ analysis, news }`.
         if ('analysis' in payload) {
           setAnalysis(payload.analysis);
           setNews(payload.news ?? []);
@@ -48,16 +48,15 @@ export function CompanyCard({ company, ticker: tickerProp, onClose, onReady }: P
           setNews([]);
         }
 
-        onReady?.();
+        onReadyRef.current?.();
       } catch (error) {
         if (!cancelled) {
           console.error('Error fetching analysis:', error);
-          onReady?.(); // stop loader even if analysis fails
+          onReadyRef.current?.();
         }
       }
     })();
 
-    //cleanup function to prevent state if we navigate away before the fetch completes
     return () => {
       cancelled = true;
     };
@@ -99,10 +98,7 @@ export function CompanyCard({ company, ticker: tickerProp, onClose, onReady }: P
 
   useEffect(() => {
     const symbol = profile?.ticker;
-    if (!symbol) {
-      setPrices([]);
-      return;
-    }
+    if (!symbol) return;
 
     const cacheKey = `${symbol}:${range}`;
     const cached = priceCacheRef.current.get(cacheKey);

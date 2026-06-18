@@ -20,6 +20,7 @@ export function CompanyCarousel({ items, selectedId, onSelect, onAnalyze }: Prop
   useEffect(() => {
     if (selectedId == null) return;
     const idx = items.findIndex((it) => it.id === selectedId);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (idx >= 0) setActiveIndex(idx);
   }, [selectedId, items]);
 
