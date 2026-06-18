@@ -8,12 +8,12 @@ It combines live stock data, AI-generated analysis, and an elegant UI to provide
 
 ## Features
 
-- 🔍 Company search
+- 🔍 Company search (name, ticker, sector)
 - 🎯 AI-powered company analysis
 - 📈 Interactive price chart (7d / 1m / 6m)
-- 📰 Latest company news
+- 📰 Latest company news with article links
 - ⚡ Async loading states with custom loader
-- 🧠 Client-side caching (prices by symbol + range)
+- 🧠 Server-side caching via Next.js Data Cache (survives Vercel cold starts)
 - 🎨 Responsive premium UI (glassmorphism + smooth transitions)
 - 🌙 Dark-mode optimized interface
 
@@ -24,11 +24,12 @@ It combines live stock data, AI-generated analysis, and an elegant UI to provide
 MarketScope is built with a modular architecture:
 
 - `app/` — Next.js App Router pages
+- `app/api/` — Backend routes (Next.js Route Handlers)
 - `components/` — Reusable UI components (Carousel, CompanyCard, Footer, Loader)
-- `services/` — API abstraction layer
+- `services/` — Client-side API abstraction layer
+- `lib/` — Shared server-side utilities (news fetching)
 - `domain/` — Typed models and mappers
-- `utils/` — UI and data utilities
-- `api/` — Backend routes (Next.js Route Handlers)
+- `app/utils/` — UI and data utilities
 
 ### Data Flow
 
@@ -60,7 +61,8 @@ MarketScope is built with a modular architecture:
   - AI analysis endpoint
 
 ### UX & Performance
-- Client-side caching (symbol + range)
+- Server-side caching via Next.js Data Cache (`unstable_cache` + `next.revalidate`)
+- AI analysis timeout (10s) with graceful fallback
 - Loading fallback protection
 - Smooth scroll transitions
 - Responsive layout
@@ -80,11 +82,13 @@ cd marketscope
 
 npm install
 
-### 3 - Create.env.local
+### 3 - Create .env.local
 
 FINNHUB_API_KEY=your_key_here
-NEWS_API_KEY=your_key_here
-ANALYSIS_API_KEY=your_key_here
+MARKETAUX_API_TOKEN=your_key_here
+HF_API_KEY=your_key_here
+ALPHA_VANTAGE_API_KEY=your_key_here
+AI_ENABLED=true
 
 ### 4 - Run development server
 
@@ -100,15 +104,16 @@ http://localhost:3000
 [Visit MarketScope](https://market-scope-ai.vercel.app)
 ---
 
-© Future Improvements
+## Future Improvements
 
 Planned or possible enhancements to evolve MarketScope further:
 
 - Enhanced chart interactions (zoom, tooltips, animations)
-- Improved error handling UI (rate limits, API failures, fallback states)
 - Expand company dataset with sector filters
 - Progressive Web App (PWA) support
 - Authentication layer for saved watchlists
+- Skeleton loading for the carousel
+- Upgrade Alpha Vantage to a premium plan to lift the 25 req/day limit
 
 These improvements would move the project closer to a production-grade financial dashboard.
 

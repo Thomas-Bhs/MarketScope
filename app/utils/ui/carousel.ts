@@ -18,10 +18,10 @@ export function getCoverflowStyle(index: number, activeIndex: number) {
     };
   }
 
-  // Center card
+  // Center card — scale au lieu de translateZ pour éviter le décalage de la zone de clic
   if (offset === 0) {
     return {
-      transform: 'translateZ(120px) rotateY(0deg) scale(1)',
+      transform: 'scale(1.1) rotateY(0deg)',
       opacity: 1,
       zIndex: 2000,
       position: 'relative' as const,

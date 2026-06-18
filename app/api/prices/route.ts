@@ -2,24 +2,11 @@ import { NextResponse } from 'next/server';
 
 const ALPHA_VANTAGE_API_KEY = process.env.ALPHA_VANTAGE_API_KEY ?? '';
 
-//cache for prices to avoid API limits and improve performance
-const pricesCache = new Map<string, { value: any; expiresAt: number }>();
-
-const inFlightRequests = new Map<string, Promise<Array<{ date: string; close: number }>>>(); // deduplicate concurrent requests
-
-const CACHE_DURATION = 60 * 1000 * 10;
-
-//convert range string to number of points
-function rangeToPoints(range: string) {
+function rangeToPoints(range: string): number {
   switch (range) {
-    case '7d':
-      return 7;
-    case '1m':
-      return 30;
-    case '6m':
-      return 26; //26 weeks in 6 months
-    default:
-      return 30;
+    case '7d': return 7;
+    case '6m': return 100;
+    default:   return 30;
   }
 }
 
@@ -36,87 +23,49 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'symbol missing' }, { status: 400 });
   }
 
-  const cacheKey = `${symbol}_${range}`; //unique key for symbol+range
-  const cached = pricesCache.get(cacheKey);
-  if (cached && cached.expiresAt > Date.now()) {
-    return NextResponse.json(cached.value);
-  }
-
-  // If a request is in flight wait for result
-  if (inFlightRequests.has(cacheKey)) {
-    const data = await inFlightRequests.get(cacheKey)!;
-    return NextResponse.json(data);
-  }
-
   const points = rangeToPoints(range);
 
-  const avFunction = range === '6m' ? 'TIME_SERIES_WEEKLY' : 'TIME_SERIES_DAILY';
-  const seriesKey = range === '6m' ? 'Weekly Time Series' : 'Time Series (Daily)';
-
   const alphaVantageUrl =
-    `https://www.alphavantage.co/query?function=${encodeURIComponent(avFunction)}` +
+    `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY` +
     `&symbol=${encodeURIComponent(symbol)}` +
     `&apikey=${encodeURIComponent(ALPHA_VANTAGE_API_KEY)}`;
 
-  const requestPromise = (async () => {
-    const res = await fetch(alphaVantageUrl, { cache: 'no-store' });
+  try {
+    const res = await fetch(alphaVantageUrl, {
+      next: { revalidate: 600 }, // 10 min — cache géré par Next.js Data Cache (survit aux cold starts Vercel)
+    });
 
     if (!res.ok) {
       const details = await res.text().catch(() => '');
-      throw new Error(`Alpha Vantage API error: ${res.status} ${res.statusText} - ${details}`);
+      return NextResponse.json(
+        { error: 'Alpha Vantage API error', details: `${res.status} - ${details}` },
+        { status: res.status }
+      );
     }
 
-    const data = await res.json();
+    const data: Record<string, unknown> = await res.json();
 
-    // Alpha Vantage sometimes returns throttling/info messages when rate-limited
     if (data?.Note || data?.Information || data?.Error_Message) {
       const msg = String(data?.Note ?? data?.Information ?? data?.Error_Message ?? '');
-      const err: any = new Error(`Alpha Vantage rate limit: ${msg}`);
-      err.status = 429;
-      err.details = msg;
-      throw err;
+      return NextResponse.json({ error: 'Alpha Vantage rate limit', details: msg }, { status: 429 });
     }
 
-    const series = data?.[seriesKey];
+    const series = data?.['Time Series (Daily)'];
     if (!series || typeof series !== 'object') {
-      throw new Error('Missing time series in response');
+      return NextResponse.json({ error: 'Missing time series in response' }, { status: 502 });
     }
 
-    // Take latest N points
-    const dates = Object.keys(series).sort().slice(-points);
+    const typedSeries = series as Record<string, Record<string, string>>;
+    const dates = Object.keys(typedSeries).sort().slice(-points);
 
-    const result = dates.map((d) => ({
+    const result: Array<{ date: string; close: number }> = dates.map((d) => ({
       date: d,
-      close: Number(series[d]?.['4. close'] ?? series[d]?.['5. adjusted close'] ?? 0),
-    })); //4. is close price, 5. is adjusted close (after dividends/splits)
+      close: Number(typedSeries[d]?.['4. close'] ?? typedSeries[d]?.['5. adjusted close'] ?? 0),
+    }));
 
-    pricesCache.set(cacheKey, {
-      value: result,
-      expiresAt: Date.now() + CACHE_DURATION,
-    });
-
-    return result;
-  })();
-
-  inFlightRequests.set(cacheKey, requestPromise);
-
-  try {
-    const result = await requestPromise;
     return NextResponse.json(result);
-  } catch (error: any) {
-    // If we have stale cache, serve it instead of failing
-    if (cached?.value) {
-      return NextResponse.json(cached.value);
-    }
-
-    return NextResponse.json(
-      {
-        error: 'Alpha Vantage response error',
-        details: error?.details ?? error?.message ?? String(error),
-      },
-      { status: typeof error?.status === 'number' ? error.status : 500 }
-    );
-  } finally {
-    inFlightRequests.delete(cacheKey); //delete in-flight when the resquest is in cache or failed
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: 'Alpha Vantage response error', details: msg }, { status: 500 });
   }
 }

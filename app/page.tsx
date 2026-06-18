@@ -78,12 +78,22 @@ export default function Home() {
     const q = query.trim().toLowerCase();
     if (!q) return miniItems;
 
-    return miniItems.filter((it) => {
-      return it.name.toLowerCase().includes(q);
-    });
+    return miniItems.filter((it) =>
+      it.name.toLowerCase().includes(q) ||
+      (it.ticker ?? '').toLowerCase().includes(q) ||
+      (it.sector ?? '').toLowerCase().includes(q)
+    );
   }, [miniItems, query]);
 
-  const selectedCompany = companies.find((c) => c.id === selectedCompanyId) ?? companies[0] ?? null;
+  const selectedCompany = useMemo(
+    () => companies.find((c) => c.id === selectedCompanyId) ?? companies[0] ?? null,
+    [companies, selectedCompanyId]
+  );
+
+  const selectedMiniItem = useMemo(
+    () => miniItems.find((it) => it.id === selectedCompanyId) ?? null,
+    [miniItems, selectedCompanyId]
+  );
 
   const handleAnalyze = useCallback((id: number) => {
     setSelectedCompanyId(id);
@@ -115,9 +125,6 @@ export default function Home() {
     return () => clearTimeout(t);
   }, [showAnalysis, selectedCompanyId]);
 
-  useEffect(() => {
-    setShowAnalysis(false);
-  }, [query]);
 
   return (
     <>
@@ -149,7 +156,7 @@ export default function Home() {
             type='text'
             placeholder='Search'
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => { setQuery(e.target.value); setShowAnalysis(false); }}
             className='
         w-full
         rounded-xl
@@ -241,6 +248,7 @@ export default function Home() {
                     <CompanyCard
                       key={selectedCompany.id}
                       company={selectedCompany}
+                      ticker={selectedMiniItem?.ticker}
                       onClose={() => {
                         setShowAnalysis(false);
                         setAnalysisLoading(false);

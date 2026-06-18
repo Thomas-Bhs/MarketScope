@@ -1,4 +1,6 @@
 import { InferenceClient } from '@huggingface/inference';
+
+type ChatCompletion = Awaited<ReturnType<InferenceClient['chatCompletion']>>;
 import { extractJson } from '@/app/utils/ai/extractJson';
 
 type ChatModel =
@@ -32,18 +34,18 @@ export async function getJsonFromHF(params: {
       'You are a JSON generator. Reply with ONLY a valid JSON object matching the requested format. No reasoning, no markdown, no extra text.',
   };
 
-  const pickText = (completion: any): string => {
+  const pickText = (completion: ChatCompletion): string => {
     const msg = completion?.choices?.[0]?.message;
     const content = msg?.content;
 
     if (typeof content === 'string' && content.trim()) return content;
-    
-    //some providers return content as an array
+
     if (Array.isArray(content)) {
-      const joined = content.map((x: any) => (typeof x === 'string' ? x : x?.text ?? '')).join('');
+      const joined = content
+        .map((x) => (typeof x === 'string' ? x : (x as { text?: string })?.text ?? ''))
+        .join('');
       if (joined.trim()) return joined;
     }
-
 
     return '';
   };
