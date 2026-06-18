@@ -1,129 +1,114 @@
 import { NextResponse } from 'next/server';
+import { unstable_cache } from 'next/cache';
 import { InferenceClient } from '@huggingface/inference';
 import type { NewsItem } from '@/domain/news';
 import type { Analysis } from '@/domain/analysis';
 import { getJsonFromHF } from '@/app/utils/ai/hfJsonCompletion';
 import { applyBusinessRules } from '@/app/utils/ai/scoreRules';
 import { buildAnalysisPrompt } from '@/app/utils/ai/prompts';
-
-const HF_API_KEY = process.env.HF_API_KEY ?? '';
-const client = new InferenceClient(HF_API_KEY);
-const cacheDuration = 1000 * 60 * 60;
-
-const MAX_AI_CALLS = 50;
-let aiCallCount = 0;
+import { fetchNewsForCompany } from '@/lib/news';
 
 type AnalysisPayload = { analysis: Analysis; news: NewsItem[]; asOf?: string };
-const analysisCache = new Map<string, { value: AnalysisPayload; expiresAt: number }>();
 
-export async function GET(req: Request) {
-  if (!HF_API_KEY) return NextResponse.json({ error: 'HF_API_KEY missing' }, { status: 500 });
+const client = new InferenceClient(process.env.HF_API_KEY ?? '');
+const AI_TIMEOUT_MS = 10_000;
 
-  const url = new URL(req.url);
-  const companyId = url.searchParams.get('companyId');
-  if (!companyId) return NextResponse.json({ error: 'companyId missing' }, { status: 400 });
-
-  //fetch news from API route
-  const newsRes = await fetch(`${url.origin}/api/news?companyId=${encodeURIComponent(companyId)}`, {
-    cache: 'no-store',
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error(`HF timeout after ${ms}ms`)), ms);
+    promise.then(
+      (v) => { clearTimeout(t); resolve(v); },
+      (e) => { clearTimeout(t); reject(e); }
+    );
   });
+}
 
-  if (!newsRes.ok) {
-    const details = await newsRes.text();
-    return NextResponse.json({ error: 'News API error', details }, { status: newsRes.status });
-  }
+async function computeAnalysis(companyId: number): Promise<AnalysisPayload> {
+  const news = await fetchNewsForCompany(companyId);
 
-  // prepare the text for the AI prompt
-  const news: NewsItem[] = await newsRes.json();
-
-  //determine the most recent news date
   const asOf = news
     .map((n) => n.date)
     .filter(Boolean)
     .sort()
     .at(-1);
 
-  const newsText = news.map((n) => n.title).join(' | '); //concatenate news titles for the AI prompt
+  const newsText = news.map((n) => n.title).join(' | ');
 
   if (!newsText.trim()) {
-    const analysis: Analysis = {
-      score: 0,
-      recommendation: 'HOLD',
-      summary: 'No news available for this company.',
-    };
-    return NextResponse.json({ analysis, news, asOf });
-  }
-
-  // AI toggle via env + automatic fallback if usage limit reached
-  const AI_ENABLED = (process.env.AI_ENABLED ?? 'true') === 'true';
-
-  if (!AI_ENABLED || aiCallCount >= MAX_AI_CALLS) {
-    return NextResponse.json({
-      analysis: {
-        score: 72,
-        recommendation: 'HOLD',
-        summary:
-          aiCallCount >= MAX_AI_CALLS
-            ? 'AI quota reached. Showing fallback analysis for demo purposes.'
-            : 'AI disabled via environment configuration.',
-      },
+    return {
+      analysis: { score: 0, recommendation: 'HOLD', summary: 'No news available for this company.' },
       news,
       asOf,
-    });
+    };
   }
 
-  const cacheKey = `${companyId}:${newsText}`;
-  const cached = analysisCache.get(cacheKey);
-  if (cached && cached.expiresAt > Date.now()) {
-    return NextResponse.json(cached.value);
+  if ((process.env.AI_ENABLED ?? 'true') !== 'true') {
+    return {
+      analysis: { score: 72, recommendation: 'HOLD', summary: 'AI disabled via environment configuration.' },
+      news,
+      asOf,
+    };
   }
-  if (cached) analysisCache.delete(cacheKey);
 
-  const prompt = buildAnalysisPrompt(newsText);
+  let analysis: Analysis;
 
   try {
-    aiCallCount++;
-    // call HF for analysis
-    const { text, json } = await getJsonFromHF({
+    const { text, json } = await withTimeout(getJsonFromHF({
       client,
       model: 'openai/gpt-oss-20b:ovhcloud',
-      prompt,
+      fallbackModel: 'openai/gpt-oss-20b:ovhcloud', // même modèle = pas de 3e tentative sur un provider différent
+      prompt: buildAnalysisPrompt(newsText),
       max_tokens: 250,
       temperature: 0,
-    });
+    }), AI_TIMEOUT_MS);
 
     console.log('AI response:', text, json);
 
-    let analysis: Analysis;
-
     if (!json) {
-      analysis = {
-        score: 50,
-        recommendation: 'HOLD',
-        summary: newsText.slice(0, 200),
-      };
+      analysis = { score: 50, recommendation: 'HOLD', summary: newsText.slice(0, 200) };
     } else {
       try {
-        analysis = JSON.parse(json);
+        analysis = JSON.parse(json) as Analysis;
       } catch {
-        analysis = {
-          score: 50,
-          recommendation: 'HOLD',
-          summary: newsText.slice(0, 200),
-        };
+        analysis = { score: 50, recommendation: 'HOLD', summary: newsText.slice(0, 200) };
       }
     }
 
     analysis = applyBusinessRules(analysis, newsText);
+    console.log('Analysis after rules:', analysis);
+  } catch (err) {
+    console.error('HF provider error — returning fallback:', err instanceof Error ? err.message : err);
+    analysis = {
+      score: 50,
+      recommendation: 'HOLD',
+      summary: 'AI analysis temporarily unavailable. Please try again later.',
+    };
+  }
 
-    console.log('Analysis after rules', analysis);
+  return { analysis, news, asOf };
+}
 
-    const payload: AnalysisPayload = { analysis, news, asOf };
+const getCachedAnalysis = unstable_cache(computeAnalysis, ['analysis'], { revalidate: 3600 });
 
-    analysisCache.set(cacheKey, { value: payload, expiresAt: Date.now() + cacheDuration });
+export async function GET(req: Request) {
+  if (!process.env.HF_API_KEY) {
+    return NextResponse.json({ error: 'HF_API_KEY missing' }, { status: 500 });
+  }
+  if (!process.env.MARKETAUX_API_TOKEN) {
+    return NextResponse.json({ error: 'MARKETAUX_API_TOKEN missing' }, { status: 500 });
+  }
 
+  const url = new URL(req.url);
+  const companyIdStr = url.searchParams.get('companyId');
+  if (!companyIdStr) {
+    return NextResponse.json({ error: 'companyId missing' }, { status: 400 });
+  }
+
+  try {
+    const payload = await getCachedAnalysis(Number(companyIdStr));
     return NextResponse.json(payload);
   } catch (err) {
-    return NextResponse.json({ error: 'HF API error', details: err }, { status: 500 });
+    const msg = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: 'Analysis error', details: msg }, { status: 500 });
   }
 }

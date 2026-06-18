@@ -14,15 +14,17 @@ import { recommendationBadgeClass, formatMarketCapMillions } from '@/app/utils/u
 
 type Props = {
   company: Company;
+  ticker?: string | null;
   onClose?: () => void;
   onReady?: () => void;
 };
 
-export function CompanyCard({ company, onClose, onReady }: Props) {
+export function CompanyCard({ company, ticker: tickerProp, onClose, onReady }: Props) {
   const [news, setNews] = useState<NewsItem[]>([]);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [profile, setProfile] = useState<CompanyProfile | null>(null);
   const [prices, setPrices] = useState<PricePoint[]>([]);
+  const [priceError, setPriceError] = useState<string | null>(null);
   const [range, setRange] = useState<PriceRange>('7d');
 
   const priceCacheRef = useRef(new Map<string, PricePoint[]>());
@@ -66,21 +68,24 @@ export function CompanyCard({ company, onClose, onReady }: Props) {
 
     (async () => {
       try {
-        const results = await searchCompanies(company.name);
+        let symbol: string | undefined;
 
-        if (cancelled) return;
+        if (tickerProp) {
+          symbol = tickerProp;
+        } else {
+          const results = await searchCompanies(company.name);
+          if (cancelled) return;
+          const best =
+            results.find((r) => r.type === 'Common Stock' && !r.symbol.includes('.')) ?? results[0];
+          symbol = best?.symbol;
+        }
 
-        // pick the best result
-        const best =
-          results.find((r) => r.type === 'Common Stock' && !r.symbol.includes('.')) ?? results[0];
-
-        if (!best?.symbol) {
+        if (!symbol) {
           setProfile(null);
           return;
         }
 
-        const p = await getCompanyProfile(best.symbol);
-
+        const p = await getCompanyProfile(symbol);
         if (!cancelled) setProfile(p);
       } catch (error) {
         if (!cancelled) console.error('Error fetching profile:', error);
@@ -90,7 +95,7 @@ export function CompanyCard({ company, onClose, onReady }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [company.id, company.name]);
+  }, [company.id, company.name, tickerProp]);
 
   useEffect(() => {
     const symbol = profile?.ticker;
@@ -109,15 +114,21 @@ export function CompanyCard({ company, onClose, onReady }: Props) {
     let cancelled = false;
 
     (async () => {
+      setPriceError(null);
       try {
         const data = await getPrices(symbol, range);
         const next = Array.isArray(data) ? data : [];
         if (cancelled) return;
-        // Save to cache and update state
         priceCacheRef.current.set(cacheKey, next);
         setPrices(next);
       } catch (error) {
-        if (!cancelled) console.error('Error fetching prices:', error);
+        if (cancelled) return;
+        const msg = error instanceof Error ? error.message : '';
+        setPriceError(
+          msg.includes('429') || msg.toLowerCase().includes('rate limit')
+            ? 'Rate limit reached — try again later.'
+            : 'Price data temporarily unavailable.'
+        );
       }
     })();
 
@@ -231,6 +242,8 @@ export function CompanyCard({ company, onClose, onReady }: Props) {
               <div className='mt-3'>
                 <ScoreChart scores={prices.map((p) => ({ date: p.date, score: p.close }))} />
               </div>
+            ) : priceError ? (
+              <p className='mt-3 text-sm text-white/40 italic'>{priceError}</p>
             ) : (
               <p className='mt-3 text-sm text-white/50'>No price data available for this range.</p>
             )}
@@ -244,7 +257,18 @@ export function CompanyCard({ company, onClose, onReady }: Props) {
           <ul className='mt-2 text-sm text-white/60 space-y-2'>
             {news.map((n) => (
               <li key={`${n.date}-${n.source}-${n.title}`}>
-                <span className='block'>{n.title}</span>
+                {n.url ? (
+                  <a
+                    href={n.url}
+                    target='_blank'
+                    rel='noreferrer'
+                    className='block hover:text-white transition'
+                  >
+                    {n.title}
+                  </a>
+                ) : (
+                  <span className='block'>{n.title}</span>
+                )}
                 <span className='block text-xs text-white/40'>
                   {n.source} • {n.date}
                 </span>
